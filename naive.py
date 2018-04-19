@@ -15,8 +15,14 @@ def kl_score(Qt, Qr):
 
 def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 	#datadf.groupby(['sex']).mean()['capital-gain']
-	result_ref = ref_dataset.groupby([a]).mean()[m]
-	result_target = target_dataset.groupby([a]).mean()[m]
+	result_ref = ref_dataset.groupby([a]).mean()[m].to_frame()
+	result_target = target_dataset.groupby([a]).mean()[m].to_frame()
+
+	# Normalize to a probability distribution (i.e. the values of f(m) sum to 1)
+	result_ref[m] = result_ref[m].apply(lambda x: x/result_ref[m].sum())
+	result_target[m] = result_target[m].apply(lambda x: x/result_target[m].sum())
+
+	distance = kl_score(result_target, result_ref)
 	pdb.set_trace()
 	
 
