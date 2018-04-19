@@ -2,6 +2,16 @@
 
 import pandas as pd
 import pdb
+import math
+
+def kl_score(Qt, Qr):
+	qt = dict(Qt)
+	qr = dict(Qr)
+	kl = 0
+	for key in qt:
+		kl += qr[key] * math.log(qt[key] / qr[key])
+	return -1*kl
+
 
 def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 	#datadf.groupby(['sex']).mean()['capital-gain']
