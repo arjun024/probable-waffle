@@ -8,6 +8,7 @@ def kl_score(Qt, Qr):
 	qt = dict(Qt)
 	qr = dict(Qr)
 	kl = 0
+	pdb.set_trace()
 	for key in qt:
 		kl += qr[key] * math.log(qt[key] / qr[key])
 	return -1*kl
@@ -34,7 +35,9 @@ def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 	result_target[m] = result_target[m].apply(lambda x: x/result_target[m].sum())
 
 	#distance = kl_score(result_target, result_ref)
-	pdb.set_trace()
+	return (result_target, result_ref)
+
+
 	
 
 
@@ -43,7 +46,7 @@ def main():
 	"occupation", "relationship", "race", "sex", "capital_gain", "capital_loss",
 	"hours_per_week", "native_country", "label"]
 
-	datadf = pd.read_csv('adult.data', names=names, delimiter=', ')
+	datadf = pd.read_csv('adult.data', names=names, delimiter=", ")
 	a = 'sex'
 	m = 'capital_gain'
 	f = 'mean'
@@ -53,7 +56,10 @@ def main():
 	# Original question: Target dataset is Married people
 	target_dataset = datadf[datadf.marital_status == 'Married-civ-spouse']
 
-	create_view_query(a, m, ref_dataset, target_dataset, f)
+	Qt, Qr = create_view_query(a, m, ref_dataset, target_dataset, f)
+	kl = kl_score(Qt, Qr)
+	pdb.set_trace()
+	# print("kl score is " + str(kl))
 	
 
 if __name__ == '__main__':
