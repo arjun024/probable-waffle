@@ -19,10 +19,21 @@ def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 	result_target = target_dataset.groupby([a]).mean()[m].to_frame()
 
 	# Normalize to a probability distribution (i.e. the values of f(m) sum to 1)
+	# E.g.
+	# result_ref
+	# sex         capital_gain          
+	# Female      0.441264
+	# Male        0.558736
+	#
+	# result_target
+	# sex         capital_gain             
+	# Female      0.474307
+	# Male        0.525693
+
 	result_ref[m] = result_ref[m].apply(lambda x: x/result_ref[m].sum())
 	result_target[m] = result_target[m].apply(lambda x: x/result_target[m].sum())
 
-	distance = kl_score(result_target, result_ref)
+	#distance = kl_score(result_target, result_ref)
 	pdb.set_trace()
 	
 
