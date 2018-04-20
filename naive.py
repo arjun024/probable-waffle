@@ -4,14 +4,13 @@ import pandas as pd
 import pdb
 import math
 
-def kl_score(Qt, Qr):
-	qt = dict(Qt)
-	qr = dict(Qr)
+def kl_score(qt, qr):
 	kl = 0
-	pdb.set_trace()
-	for key in qt:
-		kl += qr[key] * math.log(qt[key] / qr[key])
-	return -1*kl
+	i = 0
+	for val in qt:
+		kl += qr[i] * math.log(val / qr[i])
+		i += 1
+	return -1 * kl
 
 
 def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
@@ -34,8 +33,7 @@ def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 	result_ref[m] = result_ref[m].apply(lambda x: x/result_ref[m].sum())
 	result_target[m] = result_target[m].apply(lambda x: x/result_target[m].sum())
 
-	#distance = kl_score(result_target, result_ref)
-	return (result_target, result_ref)
+	return (result_target[m].to_frame()[m], result_ref[m].to_frame()[m])
 
 
 	
