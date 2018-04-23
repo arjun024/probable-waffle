@@ -3,20 +3,25 @@
 import pandas as pd
 import pdb
 import math
+from scipy import stats
 
 def kl_score(qt, qr):
 	kl = 0
-	i = 0
-	for val in qt:
-		kl += qr[i] * math.log(val / qr[i])
-		i += 1
+	for k, val in qt.iteritems():
+		# TODO: is this right?
+		# What to do when qr and qt have different sizes?
+		# K-L dist = inf when either qr or qt has a 0
+		if k not in qr or qr[k] == 0 or qt[k] == 0:
+			continue
+		kl += qr[k] * math.log(val / qr[k])
 	return -1 * kl
 
 
-def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
-	#datadf.groupby(['sex']).mean()['capital-gain']
-	result_ref = ref_dataset.groupby([a]).mean()[m].to_frame()
-	result_target = target_dataset.groupby([a]).mean()[m].to_frame()
+def create_view_query(a, m, ref_dataset, target_dataset, f):
+	#pdb.set_trace()
+	
+	result_ref = getattr(ref_dataset.groupby([a]), f)()[m].to_frame()
+	result_target = getattr(target_dataset.groupby([a]), f)()[m].to_frame()
 
 	# Normalize to a probability distribution (i.e. the values of f(m) sum to 1)
 	# E.g.
@@ -40,24 +45,46 @@ def create_view_query(a, m, ref_dataset, target_dataset, f='mean'):
 
 
 def main():
-	names = ["age", "workclass", "fnlwgt", "education", "education_num", "marital_status",
-	"occupation", "relationship", "race", "sex", "capital_gain", "capital_loss",
-	"hours_per_week", "native_country", "label"]
+	names = ['age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status',
+	'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss',
+	'hours_per_week', 'native_country', 'label']
 
-	datadf = pd.read_csv('adult.data', names=names, delimiter=", ")
-	a = 'sex'
-	m = 'capital_gain'
-	f = 'mean'
+	datadf = pd.read_csv('adult.data', names=names, delimiter=', ')
+
+	dimensions = ['age', 'workclass', 'education', 'education_num', 'marital_status',
+		'occupation', 'relationship', 'race', 'sex', 'native_country']
+	measures = ['capital_gain', 'capital_loss', 'hours_per_week']
+
+	# TODO: Min causing all zeroes?
+	functions = ['mean', 'sum', 'max', 'count'] #, 'min']
+	k = 5
 
 	# Original question: Ref dataset is Unmarried people
 	ref_dataset = datadf[datadf.marital_status == 'Never-married']
 	# Original question: Target dataset is Married people
 	target_dataset = datadf[datadf.marital_status == 'Married-civ-spouse']
 
-	Qt, Qr = create_view_query(a, m, ref_dataset, target_dataset, f)
-	kl = kl_score(Qt, Qr)
-	pdb.set_trace()
-	# print("kl score is " + str(kl))
+	k_best = []
+	for a in dimensions:
+		for m in measures:
+			for f in functions:
+				print(a, m, f)
+				Qt, Qr = create_view_query(a, m, ref_dataset, target_dataset, f)
+				kl = kl_score(Qt, Qr)
+				k_best.append({
+					'a': a,
+					'm': m,
+					'f': f,
+					'utility': kl
+					})
+				# make sure k-best is stored
+				k_best = sorted(k_best, key=lambda x: x['utility'], reverse=True)
+				if len(k_best) > k:
+					k_best.pop()
+
+	# pdb.set_trace()
+	print('k-best:')
+	print(k_best)
 	
 
 if __name__ == '__main__':
