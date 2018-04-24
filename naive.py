@@ -3,7 +3,7 @@
 import pandas as pd
 import pdb
 import math
-from scipy import stats
+import sys
 
 def kl_score(qt, qr):
 	kl = 0
@@ -18,8 +18,6 @@ def kl_score(qt, qr):
 
 
 def create_view_query(a, m, ref_dataset, target_dataset, f):
-	#pdb.set_trace()
-	
 	result_ref = getattr(ref_dataset.groupby([a]), f)()[m].to_frame()
 	result_target = getattr(target_dataset.groupby([a]), f)()[m].to_frame()
 
@@ -35,9 +33,12 @@ def create_view_query(a, m, ref_dataset, target_dataset, f):
 	# Female      0.474307
 	# Male        0.525693
 
-	result_ref[m] = result_ref[m].apply(lambda x: x/result_ref[m].sum())
-	result_target[m] = result_target[m].apply(lambda x: x/result_target[m].sum())
-
+	ref_sum = float(result_ref[m].sum())
+	target_sum = float(result_target[m].sum())
+	if not ref_sum or not target_sum:
+		return None, None
+	result_ref[m] = result_ref[m].apply(lambda x: x/ref_sum)
+	result_target[m] = result_target[m].apply(lambda x: x/target_sum)
 	return (result_target[m].to_frame()[m], result_ref[m].to_frame()[m])
 
 
@@ -45,6 +46,11 @@ def create_view_query(a, m, ref_dataset, target_dataset, f):
 
 
 def main():
+	if len(sys.argv) != 2:
+		print("usage: naive.py <K-value>")
+		return
+	k = int(sys.argv[1])
+
 	names = ['age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status',
 	'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss',
 	'hours_per_week', 'native_country', 'label']
@@ -55,9 +61,7 @@ def main():
 		'occupation', 'relationship', 'race', 'sex', 'native_country']
 	measures = ['capital_gain', 'capital_loss', 'hours_per_week']
 
-	# TODO: Min causing all zeroes?
-	functions = ['mean', 'sum', 'max', 'count'] #, 'min']
-	k = 5
+	functions = ['mean', 'sum', 'max', 'count', 'min']
 
 	# Original question: Ref dataset is Unmarried people
 	ref_dataset = datadf[datadf.marital_status == 'Never-married']
@@ -70,6 +74,8 @@ def main():
 			for f in functions:
 				print(a, m, f)
 				Qt, Qr = create_view_query(a, m, ref_dataset, target_dataset, f)
+				if Qt is None:
+					continue
 				kl = kl_score(Qt, Qr)
 				k_best.append({
 					'a': a,
@@ -83,7 +89,7 @@ def main():
 					k_best.pop()
 
 	# pdb.set_trace()
-	print('k-best:')
+	print('%d-best views:' % k)
 	print(k_best)
 	
 
