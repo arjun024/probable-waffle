@@ -72,11 +72,11 @@ def main():
 	for a in dimensions:
 		for m in measures:
 			for f in functions:
-				print(a, m, f)
 				Qt, Qr = create_view_query(a, m, ref_dataset, target_dataset, f)
 				if Qt is None:
 					continue
 				kl = kl_score(Qt, Qr)
+				print(a, m, f, kl)
 				k_best.append({
 					'a': a,
 					'm': m,
@@ -88,7 +88,6 @@ def main():
 				if len(k_best) > k:
 					k_best.pop()
 
-	# pdb.set_trace()
 	print('%d-best views:' % k)
 	print(k_best)
 	

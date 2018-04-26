@@ -9,6 +9,6 @@ To import table into postgres server:
 		1.1. Delete the empty lines at the end of this file. 
 	2. CREATE DATABASE adult;
 	3. \c adult
-	4. create table adult (age int, workclass text, fnlwgt int, education text,education_num int, marital_status text, occupation text, relationship text, race text, sex text, capital_gain int, capital_loss int, hours_per_week int, naive_country text, label text);
+	4. create table adult (age int, workclass text, fnlwgt int, education text,education_num int, marital_status text, occupation text, relationship text, race text, sex text, capital_gain int, capital_loss int, hours_per_week int, native_country text, label text);
 	5. COPY adult FROM 'FULL/PATH/TO/adult.data' csv;
 	
