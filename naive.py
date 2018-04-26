@@ -55,7 +55,7 @@ def main():
 	'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss',
 	'hours_per_week', 'native_country', 'label']
 
-	datadf = pd.read_csv('adult.data', names=names, delimiter=', ')
+	datadf = pd.read_csv('adult.data', names=names, delimiter=',')
 
 	dimensions = ['age', 'workclass', 'education', 'education_num', 'marital_status',
 		'occupation', 'relationship', 'race', 'sex', 'native_country']
