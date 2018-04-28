@@ -1,3 +1,4 @@
+import psycopg2
 
 def kl_score(qt, qr):
 	kl = 0
@@ -58,6 +59,33 @@ def create_view_query(a, m, f):
 	# Female      0.474307
 	# Male        0.525693
 
+	ref_sum = float(data_ref[f].sum())
+	target_sum = float(data_tar[f].sum())
+	if not ref_sum or not target_sum:
+		return None, None
+	data_ref[f] = data_ref[f].apply(lambda x: x/ref_sum)
+	data_tar[f] = data_tar[f].apply(lambda x: x/target_sum)
+	return (data_tar.set_index(a)[f].to_dict(), data_ref.set_index(a)[f].to_dict())
+
+
+def create_view_query_wst(a, selects, tableName): #wst = with specific table
+
+	conn = psycopg2.connect('dbname=%s user=%s password=postgres' % (DB_NAME, USER_NAME))
+
+	sql_ref = "select %s, %s from %s where marital_status = 'Never-married' group by %s" % (a, selects, tableName, a)
+	sql_tar = "select %s, %s from %s where marital_status = 'Married-civ-spouse' group by %s" % (a, selects, tableName, a)
+
+	data_ref = sqlio.read_sql_query(sql_ref, conn)
+	data_tar = sqlio.read_sql_query(sql_tar, conn)
+
+	#Extracting the keys here from selects input: 
+	keys = []
+	for k in selects.split(","):
+		keys.append( (k.split("(")[0], k.split("(")[1][:-1]) ) 
+
+
+	#Todo: Distribution calculation will need to be recalculated. 
+	#Perhaps output is a map of key (f,m) :> (Qt,Qr) <distibutions>  
 	ref_sum = float(data_ref[f].sum())
 	target_sum = float(data_tar[f].sum())
 	if not ref_sum or not target_sum:

@@ -3,6 +3,7 @@ import pdb
 import psycopg2
 import math
 import pandas.io.sql as sqlio
+import util
 
 #Input the name of the full dataset
 #And a psycopg2 connection conn
@@ -42,6 +43,49 @@ def partitioner(fullTable, conn, n):
 
 
 
+#runs the naive algorithm with optimizations, but doesnt run on tuples given in the rejection_list
+#does pruning and KL score to filter out unlikely candidates for next round
+#will query using sharing optimizations
+def optimized_runner(rejectSet, tableName):
+	dimensions = ['age', 'workclass', 'education', 'education_num', 'marital_status',
+		'occupation', 'relationship', 'race', 'sex', 'native_country']
+
+	measures = ['capital_gain', 'capital_loss', 'hours_per_week']
+
+	functions = ['avg', 'sum', 'max', 'count', 'min']
+
+	k_best = []
+	newRejections = set() #set of tuples : (a,m,f)
+	selects = []
+	for a in dimensions:
+
+		for m in measures:
+			for f in functions:
+				if (a,m,f) not in rejectSet:
+					selects.append("{}({})".format(f,m))
+
+		select = ",".join(selects)
+		pdb.set_trace()
+		Qt, Qr = util.create_view_query_wst(a, selects, tableName)
+		kl = kl_score(Qt, Qr)
+		k_best.append({
+		'a': a,
+		'm': m,
+		'f': f,
+		'utility': kl
+		})
+		# make sure k-best is stored
+		#TODO:  Do we want to be preforming a sort at every iteration???
+		k_best = sorted(k_best, key=lambda x: x['utility'], reverse=True)
+		if len(k_best) > k:
+			k_best.pop()
+		#TODO : PRUNING CALCULATION - ADD TO newRejections
+
+
+	# TODO: Add worst KL scores (by some metric of worst?) to newRejections
+	return k_best, newRejections
+
+
 
 #Performs the n phase transitions. 
 #Using C.I., some aggregrate views will be discarded
@@ -49,7 +93,17 @@ def partitioner(fullTable, conn, n):
 #The ones with "low(?)" utility will be removed from later iterations
 #output: Top k query, at the end of the n phases. 
 def phaser(fullTable, conn, k, allViews):
-	
+
+	rejectSet = set() #set of tuples : (a,m,f)
+
+	for i in range(len(allViews)):
+		tableName = "part_" + str(i)
+		top_k, rL = optimized_runner(rejectSet, tableName)
+		rejectSet = rejectSet.union(rL)
+
+	return top_k
+
+
 
 
 
