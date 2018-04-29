@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg2,math
 
 def kl_score(qt, qr):
 	kl = 0
@@ -11,8 +11,9 @@ def kl_score(qt, qr):
 		kl += qr[k] * math.log(val / qr[k])
 	return -1 * kl
 
-def pruning_threshold():
-    return 0;
+def error_bound(m,N,delta):
+	i = (1-(m-1)/N)*(2*math.log2(math.log2(m))+ math.log2(math.pi*math.pi/3/delta))
+	return math.sqrt(i/2/m)
 
 def create_view_query(a, m, ref_dataset, target_dataset, f):
 	result_ref = getattr(ref_dataset.groupby([a]), f)()[m].to_frame()
