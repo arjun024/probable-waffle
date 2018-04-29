@@ -4,6 +4,7 @@ import psycopg2
 import math
 import pandas.io.sql as sqlio
 import util
+import heapq
 
 #Input the name of the full dataset
 #And a psycopg2 connection conn
@@ -55,6 +56,7 @@ def optimized_runner(rejectSet, tableName):
 	functions = ['avg', 'sum', 'max', 'count', 'min']
 
 	k_best = []
+	heapq.heapify(k_best)
 	newRejections = set() #set of tuples : (a,m,f)
 	selects = []
 	for a in dimensions:
@@ -78,8 +80,9 @@ def optimized_runner(rejectSet, tableName):
 		#TODO:  Do we want to be preforming a sort at every iteration???
 		k_best = sorted(k_best, key=lambda x: x['utility'], reverse=True)
 		if len(k_best) > k:
-			k_best.pop()
+			heapq.heappop(k_best)
 		#TODO : PRUNING CALCULATION - ADD TO newRejections
+
 
 
 	# TODO: Add worst KL scores (by some metric of worst?) to newRejections
