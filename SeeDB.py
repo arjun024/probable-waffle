@@ -12,8 +12,8 @@ import heapq
 #Output an array of view names
 def partitioner(fullTable, conn, n):
 	sql = "select count(*) from adult;"
-	df = sqlio.read_sql_query(sql, conn)
-	totalRows = df["count"].values[0]
+	cur = conn.cursor()
+	totalRows = 32561
 	size = math.floor(totalRows/n)
 	leftOver = totalRows%n
 	index = []
@@ -35,19 +35,23 @@ def partitioner(fullTable, conn, n):
 
 	allViews = [] 
 	for i in range(n):
-		sql = "create view part_" + str(i) + " as select * from adult where id between " + str(index[i][0]) + " and " + str(index[i][1]) + ";" 
-		# print(sql)
-		# sqlio.read_sql_query(sql, conn)
+		sql = "create view part_{} as (select * from adult where id between {} and {});".format(str(i), str(index[i][0]), str(index[i][1]) ) 
+		print(sql)
+		# cur.execute(sql)
 		allViews.append("part_"+str(i))
 
-	return allViews
+	conn.commit()
+	cur.close()
+	conn.close()
+
+	return allViews , size, totalRows
 
 
 
 #runs the naive algorithm with optimizations, but doesnt run on tuples given in the rejection_list
 #does pruning and KL score to filter out unlikely candidates for next round
 #will query using sharing optimizations
-def optimized_runner(rejectSet, tableName):
+def optimized_runner(rejectSet, tableName, eb, k):
 	dimensions = ['age', 'workclass', 'education', 'education_num', 'marital_status',
 		'occupation', 'relationship', 'race', 'sex', 'native_country']
 
@@ -55,38 +59,34 @@ def optimized_runner(rejectSet, tableName):
 
 	functions = ['avg', 'sum', 'max', 'count', 'min']
 
-	k_best = []
-	heapq.heapify(k_best)
 	newRejections = set() #set of tuples : (a,m,f)
-	selects = []
+	listOfDics = []
 	for a in dimensions:
+		selects = []
 
 		for m in measures:
 			for f in functions:
 				if (a,m,f) not in rejectSet:
-					selects.append("{}({})".format(f,m))
+					selects.append("{}({}) as {}${}".format(f,m,f,m))
 
 		select = ",".join(selects)
-		pdb.set_trace()
-		Qt, Qr = util.create_view_query_wst(a, selects, tableName)
-		kl = kl_score(Qt, Qr)
-		k_best.append({
-		'a': a,
-		'm': m,
-		'f': f,
-		'utility': kl
-		})
-		# make sure k-best is stored
-		#TODO:  Do we want to be preforming a sort at every iteration???
-		k_best = sorted(k_best, key=lambda x: x['utility'], reverse=True)
-		if len(k_best) > k:
-			heapq.heappop(k_best)
-		#TODO : PRUNING CALCULATION - ADD TO newRejections
-
+		listOfDics.extend(util.create_view_query_wst(a, select, tableName))
+	
+	listOfDics = sorted(listOfDics, key=lambda x: x['utility'], reverse=True)
+	#Find worst of best k
+	worstOfBest = listOfDics[k-1]
+	#Calculate error bound
+	#called eb
+	#Find threshold
+	threshold = worstOfBest['utility']
+	#Calculate all Upperbounds of each View Query 
+	for d in listOfDics[k:]:
+		if d['utility'] < threshold-2*eb:
+			newRejections.add((d['a'], d['m'], d['f']))
 
 
 	# TODO: Add worst KL scores (by some metric of worst?) to newRejections
-	return k_best, newRejections
+	return listOfDics, newRejections
 
 
 
@@ -95,16 +95,17 @@ def optimized_runner(rejectSet, tableName):
 #The KL score is calculated for the subset on each query pair
 #The ones with "low(?)" utility will be removed from later iterations
 #output: Top k query, at the end of the n phases. 
-def phaser(fullTable, conn, k, allViews):
+def phaser(fullTable, conn, k, allViews, N, m):
 
 	rejectSet = set() #set of tuples : (a,m,f)
 
 	for i in range(len(allViews)):
 		tableName = "part_" + str(i)
-		top_k, rL = optimized_runner(rejectSet, tableName)
+		eb = util.error_bound(m, N, 0.05)
+		top_k, rL = optimized_runner(rejectSet, tableName, eb, k)
 		rejectSet = rejectSet.union(rL)
 
-	return top_k
+	return top_k[:k]
 
 
 
@@ -113,12 +114,13 @@ def phaser(fullTable, conn, k, allViews):
 
 def main():
 	conn = psycopg2.connect("dbname=adult user=ben password=postgres")
+	# conn = con.cursor()
 	k = int(sys.argv[1])
 	n = int(sys.argv[2])
-	allViews = partitioner("adult", conn, n)
-	# print(allViews)
-	tok_k = phaser("adult", conn, k, allViews)
-
+	allViews, m, N= partitioner("adult", conn, n)
+	print(allViews)
+	top_k = phaser("adult", conn, k, allViews, N, m)
+	print(top_k)
 
 if __name__ == '__main__':
 	main()

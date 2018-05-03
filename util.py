@@ -1,8 +1,12 @@
 import psycopg2,math
+import pdb 
+import pandas.io.sql as sqlio
+
 
 def kl_score(qt, qr):
+
 	kl = 0
-	for k, val in qt.iteritems():
+	for k, val in qt.items():
 		# TODO: is this right?
 		# What to do when qr and qt have different sizes?
 		# K-L dist = inf when either qr or qt has a 0
@@ -71,27 +75,41 @@ def create_view_query(a, m, f):
 
 def create_view_query_wst(a, selects, tableName): #wst = with specific table
 
-	conn = psycopg2.connect('dbname=%s user=%s password=postgres' % (DB_NAME, USER_NAME))
+	conn = psycopg2.connect('dbname=%s user=%s password=postgres' % ("adult", "ben"))
 
-	sql_ref = "select %s, %s from %s where marital_status = 'Never-married' group by %s" % (a, selects, tableName, a)
-	sql_tar = "select %s, %s from %s where marital_status = 'Married-civ-spouse' group by %s" % (a, selects, tableName, a)
+	sql_ref = "select %s, %s from %s where marital_status = ' Never-married' group by %s" % (a, selects, tableName, a)
+	sql_tar = "select %s, %s from %s where marital_status = ' Married-civ-spouse' group by %s" % (a, selects, tableName, a)
 
 	data_ref = sqlio.read_sql_query(sql_ref, conn)
 	data_tar = sqlio.read_sql_query(sql_tar, conn)
 
 	#Extracting the keys here from selects input: 
-	keys = []
-	for k in selects.split(","):
-		keys.append( (k.split("(")[0], k.split("(")[1][:-1]) ) 
+	
+	listofDics = []
+
+	for v in data_ref.columns[1:]:
+		#create 2 df 
+		dr = data_ref[[a, v]]
+		dt = data_tar[[a, v]]
+		#Normalize
+		ref_sum = float(dr[v].sum())
+		target_sum = float(dt[v].sum())
+		if not ref_sum or not target_sum:
+			continue
+		dr[v] = dr[v].apply(lambda x: x/ref_sum)
+		dt[v] = dt[v].apply(lambda x: x/target_sum)
+		#run kl score
+		dt = dt.set_index(a)[v].to_dict()
+		dr = dr.set_index(a)[v].to_dict()
+		kl = kl_score(dt, dr)
+		listofDics.append({
+			'a': a,
+			'm': v.split("$")[1],
+			'f': v.split("$")[0],
+			'utility': kl
+			})
 
 
-	#Todo: Distribution calculation will need to be recalculated. 
-	#Perhaps output is a map of key (f,m) :> (Qt,Qr) <distibutions>  
-	ref_sum = float(data_ref[f].sum())
-	target_sum = float(data_tar[f].sum())
-	if not ref_sum or not target_sum:
-		return None, None
-	data_ref[f] = data_ref[f].apply(lambda x: x/ref_sum)
-	data_tar[f] = data_tar[f].apply(lambda x: x/target_sum)
-	return (data_tar.set_index(a)[f].to_dict(), data_ref.set_index(a)[f].to_dict())
+
+	return listofDics
 
