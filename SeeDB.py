@@ -37,7 +37,7 @@ def partitioner(fullTable, conn, n):
 	for i in range(n):
 		sql = "create view part_{} as (select * from adult where id between {} and {});".format(str(i), str(index[i][0]), str(index[i][1]) ) 
 		print(sql)
-		# cur.execute(sql)
+		cur.execute(sql)
 		allViews.append("part_"+str(i))
 
 	conn.commit()
@@ -131,9 +131,13 @@ def main():
 	print(allViews)
 	top_k = phaser("adult", conn, k, allViews, N, a)
 	print(top_k)
+	cur = conn.cursor()
+	for v in allViews:
+		cur.execute("DROP VIEW %s;" % (v))
+	conn.commit()
 	#Do visualizer
-	for t in top_k:
-		charter.bar_chart(t["a"],t["m"], t["f"])
+	# for t in top_k:
+	# 	charter.bar_chart(t["a"],t["m"], t["f"])
 
 
 def main2():
