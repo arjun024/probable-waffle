@@ -16,7 +16,8 @@ def kl_score(qt, qr):
 	return -1 * kl
 
 def error_bound(m,N,delta):
-	i = (1-(m-1)/N)*(2*math.log2(math.log2(m))+ math.log2(math.pi*math.pi/3/delta))
+	i = (1-(m-1)/N)*(2*math.log(math.log2(m))+ math.log(math.pi*math.pi/3/delta))
+	# pdb.set_trace()
 	return math.sqrt(i/2/m)
 
 def create_view_query(a, m, ref_dataset, target_dataset, f):
@@ -75,15 +76,15 @@ def create_view_query(a, m, f):
 
 def create_view_query_wst(a, selects, tableName): #wst = with specific table
 
-	conn = psycopg2.connect('dbname=%s user=%s password=postgres' % ("adult", "ben"))
+	conn = psycopg2.connect('dbname=%s user=%s' % ("adult", "hahan"))
 
-	sql_ref = "select %s, %s from %s where marital_status = ' Never-married' group by %s" % (a, selects, tableName, a)
-	sql_tar = "select %s, %s from %s where marital_status = ' Married-civ-spouse' group by %s" % (a, selects, tableName, a)
+	sql_ref = "select %s, %s from %s where marital_status = 'Never-married' group by %s" % (a, selects, tableName, a)
+	sql_tar = "select %s, %s from %s where marital_status = 'Married-civ-spouse' group by %s" % (a, selects, tableName, a)
 
 	data_ref = sqlio.read_sql_query(sql_ref, conn)
 	data_tar = sqlio.read_sql_query(sql_tar, conn)
 
-	#Extracting the keys here from selects input: 
+	#Extracting the keys here from selects input:
 	
 	listofDics = []
 

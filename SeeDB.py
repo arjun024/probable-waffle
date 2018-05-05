@@ -44,7 +44,7 @@ def partitioner(fullTable, conn, n):
 	cur.close()
 	conn.close()
 
-	return allViews , size, totalRows
+	return allViews
 
 
 
@@ -71,18 +71,18 @@ def optimized_runner(rejectSet, tableName, eb, k):
 
 		select = ",".join(selects)
 		listOfDics.extend(util.create_view_query_wst(a, select, tableName))
-	
-	listOfDics = sorted(listOfDics, key=lambda x: x['utility'], reverse=True)
-	#Find worst of best k
-	worstOfBest = listOfDics[k-1]
-	#Calculate error bound
-	#called eb
-	#Find threshold
-	threshold = worstOfBest['utility']
-	#Calculate all Upperbounds of each View Query 
-	for d in listOfDics[k:]:
-		if d['utility'] < threshold-2*eb:
-			newRejections.add((d['a'], d['m'], d['f']))
+
+	#if m>2 and error bound not 0
+	if eb > 0 :
+		#no longer need to sort
+		# listOfDics = sorted(listOfDics, key=lambda x: x['utility'], reverse=True)
+		#Find mean utility as threshhold
+		threshold = sum(e['utility'] for e in listOfDics) / len(listOfDics)
+
+		#Calculate all Upperbounds of each View Query
+		for d in listOfDics[k:]:
+			if d['utility'] < threshold-2*eb:
+				newRejections.add((d['a'], d['m'], d['f']))
 
 
 	# TODO: Add worst KL scores (by some metric of worst?) to newRejections
@@ -95,13 +95,18 @@ def optimized_runner(rejectSet, tableName, eb, k):
 #The KL score is calculated for the subset on each query pair
 #The ones with "low(?)" utility will be removed from later iterations
 #output: Top k query, at the end of the n phases. 
-def phaser(fullTable, conn, k, allViews, N, m):
+def phaser(fullTable, conn, k, allViews, N):
 
 	rejectSet = set() #set of tuples : (a,m,f)
 
 	for i in range(len(allViews)):
+
 		tableName = "part_" + str(i)
-		eb = util.error_bound(m, N, 0.05)
+		m = i+1
+		if m>1:
+			eb = util.error_bound(m, N, 0.05)
+		else :
+			eb = 0
 		top_k, rL = optimized_runner(rejectSet, tableName, eb, k)
 		rejectSet = rejectSet.union(rL)
 
@@ -113,13 +118,13 @@ def phaser(fullTable, conn, k, allViews, N, m):
 
 
 def main():
-	conn = psycopg2.connect("dbname=adult user=ben password=postgres")
+	conn = psycopg2.connect("dbname=adult user=hahan")
 	# conn = con.cursor()
 	k = int(sys.argv[1])
 	n = int(sys.argv[2])
-	allViews, m, N= partitioner("adult", conn, n)
+	allViews= partitioner("adult", conn, n)
 	print(allViews)
-	top_k = phaser("adult", conn, k, allViews, N, m)
+	top_k = phaser("adult", conn, k, allViews, n)
 	print(top_k)
 
 if __name__ == '__main__':
