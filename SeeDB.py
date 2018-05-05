@@ -44,14 +44,14 @@ def partitioner(fullTable, conn, n):
 	cur.close()
 	conn.close()
 
-	return allViews , size, totalRows
+	return allViews , totalRows
 
 
 
 #runs the naive algorithm with optimizations, but doesnt run on tuples given in the rejection_list
 #does pruning and KL score to filter out unlikely candidates for next round
 #will query using sharing optimizations
-def optimized_runner(rejectSet, tableName, eb, k):
+def optimized_runner(rejectSet, tableName, eb, k, mapOfPriors, phase_number):
 	dimensions = ['age', 'workclass', 'education', 'education_num', 'marital_status',
 		'occupation', 'relationship', 'race', 'sex', 'native_country']
 
@@ -66,27 +66,31 @@ def optimized_runner(rejectSet, tableName, eb, k):
 
 		for m in measures:
 			for f in functions:
+				if (a, m, f) not in mapOfPriors:
+					mapOfPriors[(a, m, f)] = 0
 				if (a,m,f) not in rejectSet:
 					selects.append("{}({}) as {}${}".format(f,m,f,m))
 
 		select = ",".join(selects)
-		listOfDics.extend(util.create_view_query_wst(a, select, tableName))
+		ld, mp = util.create_view_query_wst(a, select, tableName, mapOfPriors, phase_number)
+		listOfDics.extend(ld)
 	
-	listOfDics = sorted(listOfDics, key=lambda x: x['utility'], reverse=True)
-	#Find worst of best k
-	worstOfBest = listOfDics[k-1]
-	#Calculate error bound
-	#called eb
-	#Find threshold
-	threshold = worstOfBest['utility']
-	#Calculate all Upperbounds of each View Query 
-	for d in listOfDics[k:]:
-		if d['utility'] < threshold-2*eb:
-			newRejections.add((d['a'], d['m'], d['f']))
+	if phase_number > 1:
+		listOfDics = sorted(listOfDics, key=lambda x: x['utility'], reverse=True)
+		#Find worst of best k
+		worstOfBest = listOfDics[k-1]
+		#Calculate error bound
+		#called eb
+		#Find threshold
+		threshold = worstOfBest['utility']
+		#Calculate all Upperbounds of each View Query 
+		for d in listOfDics[k:]:
+			if d['utility'] < threshold-2*eb:
+				newRejections.add((d['a'], d['m'], d['f']))
 
 
 	# TODO: Add worst KL scores (by some metric of worst?) to newRejections
-	return listOfDics, newRejections
+	return listOfDics, newRejections, mp
 
 
 
@@ -95,14 +99,19 @@ def optimized_runner(rejectSet, tableName, eb, k):
 #The KL score is calculated for the subset on each query pair
 #The ones with "low(?)" utility will be removed from later iterations
 #output: Top k query, at the end of the n phases. 
-def phaser(fullTable, conn, k, allViews, N, m):
+def phaser(fullTable, conn, k, allViews, N, alpha=0.05):
 
 	rejectSet = set() #set of tuples : (a,m,f)
+	mapOfPriors = {}
+
 
 	for i in range(len(allViews)):
 		tableName = "part_" + str(i)
-		eb = util.error_bound(m, N, 0.05)
-		top_k, rL = optimized_runner(rejectSet, tableName, eb, k)
+		if i+1 > 1:
+			eb = util.error_bound(i+1, N, alpha)
+		else:
+			eb = 0
+		top_k, rL, mapOfPriors = optimized_runner(rejectSet, tableName, eb, k, mapOfPriors, i+1)
 		rejectSet = rejectSet.union(rL)
 
 	return top_k[:k]
@@ -111,16 +120,21 @@ def phaser(fullTable, conn, k, allViews, N, m):
 
 
 
-
+import charter
 def main():
 	conn = psycopg2.connect("dbname=adult user=ben password=postgres")
 	# conn = con.cursor()
 	k = int(sys.argv[1])
 	n = int(sys.argv[2])
-	allViews, m, N= partitioner("adult", conn, n)
+	a = float(sys.argv[3])
+	allViews, N= partitioner("adult", conn, n)
 	print(allViews)
-	top_k = phaser("adult", conn, k, allViews, N, m)
+	top_k = phaser("adult", conn, k, allViews, N, a)
 	print(top_k)
+	#Do visualizer
+	for t in top_k:
+		charter.bar_chart(t["a"],t["m"], t["f"])
+
 
 def main2():
 	conn = psycopg2.connect("dbname=adult user=postgres password=benjamin")
@@ -134,9 +148,9 @@ def main2():
 			# times = 0
 			# for i in range(3):	
 			startTime = time.time()
-			allViews, m, N= partitioner("adult", conn, n)
+			allViews, N= partitioner("adult", conn, n)
 			# print(allViews)
-			top_k = phaser("adult", conn, k, allViews, N, m, alpha)
+			top_k = phaser("adult", conn, k, allViews, N, alpha)
 			#Call Vizualizer function here: 
 			#Todo: Vizualization. 
 			#Remove each allViews

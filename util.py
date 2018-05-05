@@ -73,7 +73,7 @@ def create_view_query(a, m, f):
 	return (data_tar.set_index(a)[f].to_dict(), data_ref.set_index(a)[f].to_dict())
 
 
-def create_view_query_wst(a, selects, tableName): #wst = with specific table
+def create_view_query_wst(a, selects, tableName, mapOfPriors, phase_number): #wst = with specific table
 
 	conn = psycopg2.connect('dbname=%s user=%s password=postgres' % ("adult", "ben"))
 
@@ -102,14 +102,18 @@ def create_view_query_wst(a, selects, tableName): #wst = with specific table
 		dt = dt.set_index(a)[v].to_dict()
 		dr = dr.set_index(a)[v].to_dict()
 		kl = kl_score(dt, dr)
+		# check the total for (a,m,f)
+		# we add total += kl
+		m = v.split("$")[1]
+		f = v.split("$")[0]
 		listofDics.append({
 			'a': a,
-			'm': v.split("$")[1],
-			'f': v.split("$")[0],
-			'utility': kl
+			'm': m,
+			'f': f,
+			'utility': (kl+mapOfPriors[(a,m,f)])/phase_number #AVERAGE UTITILY
 			})
 
 
 
-	return listofDics
+	return listofDics, mapOfPriors
 
