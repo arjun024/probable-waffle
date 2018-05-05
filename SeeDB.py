@@ -122,6 +122,45 @@ def main():
 	top_k = phaser("adult", conn, k, allViews, N, m)
 	print(top_k)
 
+def main2():
+	conn = psycopg2.connect("dbname=adult user=postgres password=benjamin")
+	# conn = con.cursor()
+	k = int(sys.argv[1])
+	num_part = int(sys.argv[2])
+	allRuns = []
+	uu = 1
+	for n in range(20, num_part):
+		for alpha in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]:
+			# times = 0
+			# for i in range(3):	
+			startTime = time.time()
+			allViews, m, N= partitioner("adult", conn, n)
+			# print(allViews)
+			top_k = phaser("adult", conn, k, allViews, N, m, alpha)
+			#Call Vizualizer function here: 
+			#Todo: Vizualization. 
+			#Remove each allViews
+			cur = conn.cursor()
+			for v in allViews:
+				cur.execute("DROP VIEW %s;" % (v))
+			conn.commit()
+			# print(time.time() - startTime, alpha, n)
+			# times += time.time() - startTime
+			# allRuns.append((times/3, alpha, n))	
+			allRuns.append((startTime-time.time(), alpha, n))
+			# print(top_k)
+			if uu % 5 == 0:
+				print(uu/200)
+			uu+=1
+
+	# pdb.set_trace()
+	allRuns = sorted(allRuns, key=lambda x: x[0])
+	print(allRuns[:50])
+	pdb.set_trace()
+	conn.close()
+
+
+
 if __name__ == '__main__':
 	main()
 
